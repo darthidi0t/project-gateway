@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api, useApi } from '../api';
-import { CardHead, Kpis, Loadable, PageHeader, Pill, Tabs, Toggle, useAction } from '../components/ui';
+import { CardHead, Kpis, Loadable, PageHeader, Pill, Tabs, Toggle, tabItems, useAction } from '../components/ui';
 
 interface Call { m: string; from: string; to: string; id: string; ctx: string; st: string; lat: string; code: string; b: string; text?: string; p: string; scope: string; guard?: boolean; notFound?: boolean; limited?: boolean; t: string; task: string }
 interface RouteRow { route: string; binding: string; ops: string; upstream: string; timeout: string; retries: number; response: string }
@@ -32,9 +32,10 @@ function inspect(c: Call) {
 }
 
 export default function Routing() {
+  const [tab, setTab] = useState<'live' | 'routes' | 'rules'>('live');
   const [paused, setPaused] = useState(false);
   const [sel, setSel] = useState(0);
-  const traffic = useApi<Call[]>('routing/traffic', paused ? undefined : 3000);
+  const traffic = useApi<Call[]>('routing/traffic', paused || tab !== 'live' ? undefined : 3000);
   const routes = useApi<RouteRow[]>('routing/routes');
   const rules = useApi<Rule[]>('routing/rules');
   const act = useAction();
@@ -49,13 +50,14 @@ export default function Routing() {
           <button className="btn" onClick={() => setPaused((p) => !p)}>{paused ? 'Resume stream' : 'Pause stream'}</button>
         </>}
       />
-      <Tabs items={[{ label: 'Live Traffic', href: '#live', active: true }, { label: 'Routes', href: '#routes' }, { label: 'Protocol Validation', href: '#rules' }]} />
+      <Tabs items={tabItems([['live', 'Live Traffic'], ['routes', 'Routes'], ['rules', 'Protocol Validation']], tab, setTab)} />
       <div className="body">
         <Kpis label="Routing metrics" items={[
           { label: 'Requests / sec', value: '412' }, { label: 'Open SSE streams', value: '1,208' }, { label: 'Avg agent hops / task', value: '2.7' },
           { label: 'Validation rejects', value: '0.21%' }, { label: 'Gateway overhead p95', value: '14 ms' }
         ]} />
 
+        {tab === 'live' && (
         <Loadable state={traffic}>{(calls) => {
           const c = calls[Math.min(sel, calls.length - 1)]!;
           const x = inspect(c);
@@ -66,7 +68,7 @@ export default function Routing() {
                 <div className="tw"><table className="tbl nw">
                   <thead><tr><th>Time</th><th>Method</th><th>Caller → Callee</th><th>Task</th><th>Context</th><th>Task state</th><th>Latency</th><th>Result</th></tr></thead>
                   <tbody>{calls.map((r, i) => (
-                    <tr key={i} className={i === sel ? 'sel' : ''}>
+                    <tr key={i} className={`click${i === sel ? ' sel' : ''}`} onClick={() => setSel(i)}>
                       <td><button className="rb mono" style={{ fontSize: 12 }} onClick={() => setSel(i)} aria-pressed={i === sel}>{time(r.t)}</button></td>
                       <td className="mono" style={{ color: 'var(--text-2)' }}>{r.m}</td>
                       <td>{r.from} <span className="muted">→</span> {r.to}</td>
@@ -97,7 +99,9 @@ export default function Routing() {
             </div>
           );
         }}</Loadable>
+        )}
 
+        {tab === 'routes' && (
         <section className="card" id="routes">
           <CardHead title="Routes" sub="One public domain; each agent is addressed by path and resolved through the registry" />
           <Loadable state={routes}>{(list) => (
@@ -109,7 +113,9 @@ export default function Routing() {
             </table></div>
           )}</Loadable>
         </section>
+        )}
 
+        {tab === 'rules' && (
         <section className="card" id="rules">
           <CardHead title="Protocol Validation" sub="Applied to every payload before it is forwarded to a backend agent" />
           <Loadable state={rules}>{(list) => <>{list.map((r) => (
@@ -122,6 +128,7 @@ export default function Routing() {
             </div>
           ))}</>}</Loadable>
         </section>
+        )}
       </div>
     </>
   );

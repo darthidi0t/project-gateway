@@ -112,9 +112,36 @@ export const listApprovals = () => s.approvals;
 export function decideApproval(id: string, decision: 'approved' | 'rejected') {
   const p = find(s.approvals, (x) => x.id === id, 'Approval');
   p.decision = decision;
-  if (decision === 'approved' && p.id === 'p1') { const a = s.agents.find((x) => x.id === p.agentId); if (a) { a.active = true; a.kind = 'ok'; a.lastSync = 'Just now'; } }
-  if (decision === 'approved' && p.id === 'p2') { const a = s.agents.find((x) => x.id === p.agentId); if (a) { a.kind = 'ok'; a.version = '1.3.0'; a.skills.push('leave.approve', 'payroll.read'); a.lastSync = 'Just now'; } }
+  const a = s.agents.find((x) => x.id === p.agentId);
+  if (decision === 'approved' && a) {
+    if (p.kind === 'New agent') { a.active = true; a.kind = 'ok'; a.lastSync = 'Just now'; }
+    if (p.kind === 'Card drift') { a.kind = 'ok'; a.version = '1.3.0'; a.skills.push('leave.approve', 'payroll.read'); a.lastSync = 'Just now'; }
+  }
   return p;
+}
+
+export interface RegisterInput { name: string; id: string; description: string; backendUrl: string; binding: seed.Binding; auth: string; skills: string[]; owner: string; trust: 'internal' | 'external' }
+let approvalSeq = 100;
+export function registerAgent(input: RegisterInput) {
+  if (!/^agt-[a-z0-9-]{2,40}$/.test(input.id)) throw new HttpError(400, 'Agent ID must look like agt-my-agent (lower-case letters, digits and dashes)');
+  if (s.agents.some((a) => a.id === input.id)) throw new HttpError(409, `An agent with ID ${input.id} already exists`);
+  if (!/^(https?:\/\/|dns:\/\/\/)/.test(input.backendUrl)) throw new HttpError(400, 'Backend URL must start with https://, http:// or dns:///');
+  const interfaces = input.binding === 'gRPC' ? ['GRPC'] : input.binding === 'HTTP+JSON' ? ['HTTP+JSON'] : ['JSONRPC'];
+  const agent = {
+    id: input.id, name: input.name, description: input.description || input.name, binding: input.binding, interfaces, auth: input.auth,
+    backendUrl: input.backendUrl, skills: input.skills.length ? input.skills : ['default'],
+    capabilities: { streaming: input.binding !== 'HTTP+JSON', pushNotifications: false, extendedAgentCard: false },
+    signature: 'Unsigned', owner: input.owner || 'Unassigned', trust: input.trust, lastSync: 'Never (pending)', kind: 'pending' as const, active: false, version: '0.1.0'
+  };
+  s.agents.push(agent);
+  const approval = {
+    id: `p${++approvalSeq}`, kind: 'New agent', title: `${agent.name} · ${agent.id}`,
+    meta: `Registered from the console · ${agent.skills.length} skill(s) · ${agent.trust} trust`,
+    diff: `+ backend   ${agent.backendUrl}\n+ gateway   ${GATEWAY_BASE}${agent.id}\n+ binding   ${agent.binding}\n+ skills    ${agent.skills.join(', ')}`,
+    agentId: agent.id, decision: null as null | 'approved' | 'rejected'
+  };
+  s.approvals.unshift(approval);
+  return { agent: agentView(agent), approval };
 }
 
 // ---------- Routing ----------

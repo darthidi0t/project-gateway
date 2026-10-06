@@ -1,7 +1,7 @@
 import { Fragment, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api, useApi } from '../api';
-import { Arrow, CardHead, Loadable, PageHeader, Pill, Tabs, Toggle, useAction } from '../components/ui';
+import { Arrow, CardHead, Loadable, PageHeader, Pill, Tabs, Toggle, tabItems, useAction } from '../components/ui';
 
 interface Scope { scope: string; methods: string; rpm: string; grants: string[] }
 interface Policy { id: string; effect: string; hits: string; enabled: boolean; desc: string; cel: string }
@@ -15,6 +15,7 @@ const EFFECT: Record<string, string> = { Deny: 'bad', Allow: 'ok', 'Step-up': 'w
 
 export default function Access() {
   const state = useApi<AccessData>('access');
+  const [tab, setTab] = useState<'identity' | 'acl' | 'cel' | 'obo'>('identity');
   const [selPolicy, setSelPolicy] = useState(0);
   const act = useAction();
   const patch = (fn: (d: AccessData) => AccessData) => state.setData((d) => (d ? fn(d) : d));
@@ -27,14 +28,15 @@ export default function Access() {
         tools={<button className="btn pri" disabled={!state.data?.acl.unpublishedChanges} onClick={async () => {
           const r = await act(() => api.post<{ unpublishedChanges: number }>('access/publish'), 'Permission changes published to the gateway');
           if (r) patch((d) => ({ ...d, acl: { ...d.acl, unpublishedChanges: 0 } }));
-        }}>Publish changes{state.data?.acl.unpublishedChanges ? ` (${state.data.acl.unpublishedChanges})` : ''}</button>}
+        }} title={state.data?.acl.unpublishedChanges ? undefined : 'Edit the Scopes & ACLs grid first'}>{state.data?.acl.unpublishedChanges ? `Publish changes (${state.data.acl.unpublishedChanges})` : 'No changes to publish'}</button>}
       />
-      <Tabs items={[{ label: 'Identity', href: '#identity', active: true }, { label: 'Scopes & ACLs', href: '#acl' }, { label: 'Policies (CEL)', href: '#cel' }, { label: 'On-behalf-of Chains', href: '#obo' }]} />
+      <Tabs items={tabItems([['identity', 'Identity'], ['acl', 'Scopes & ACLs'], ['cel', 'Policies (CEL)'], ['obo', 'On-behalf-of Chains']], tab, setTab)} />
       <Loadable state={state}>{(d) => {
         const pol = d.policies[Math.min(selPolicy, d.policies.length - 1)]!;
         const grantCount = d.acl.scopes.reduce((n, s) => n + s.grants.length, 0);
         return (
           <div className="body">
+            {tab === 'identity' && (
             <div className="grid3" id="identity">
               {d.identity.map((c) => (
                 <section className="card" key={c.title}>
@@ -43,7 +45,9 @@ export default function Access() {
                 </section>
               ))}
             </div>
+            )}
 
+            {tab === 'acl' && (
             <section className="card" id="acl">
               <CardHead title="Scope → Agent Capability ACL" sub={`Which OAuth scopes may reach which agents. Click a cell to grant or revoke · ${grantCount} grants · ${d.acl.unpublishedChanges ? `${d.acl.unpublishedChanges} unpublished change(s)` : 'no unpublished changes'}`} right={<span className="cs mono">Permissions table</span>} />
               <div className="tw"><table className="tbl">
@@ -68,14 +72,16 @@ export default function Access() {
                 ))}</tbody>
               </table></div>
             </section>
+            )}
 
+            {tab === 'cel' && (
             <div className="split" id="cel">
               <section className="card" style={{ flex: '1 1 520px' }}>
                 <CardHead title="Access Policies" sub="CEL expressions bound to agent entities · evaluated per method and resource" />
                 <div className="tw"><table className="tbl nw">
                   <thead><tr><th>Policy</th><th>Effect</th><th>Hits 24 h</th><th>Enabled</th></tr></thead>
                   <tbody>{d.policies.map((p, i) => (
-                    <tr key={p.id} className={p.id === pol.id ? 'sel' : ''}>
+                    <tr key={p.id} className={`click${p.id === pol.id ? ' sel' : ''}`} onClick={(e) => { if (!(e.target as HTMLElement).closest('.sw')) setSelPolicy(i); }}>
                       <td><button className="rb mono" style={{ fontSize: 12.5 }} onClick={() => setSelPolicy(i)} aria-pressed={p.id === pol.id}>{p.id}</button></td>
                       <td><Pill tone={EFFECT[p.effect] ?? 'mute'}>{p.effect}</Pill></td>
                       <td>{p.hits}</td>
@@ -93,7 +99,9 @@ export default function Access() {
                 <p className="cs" style={{ marginTop: 14 }}>Variables: <span className="mono">principal</span> (calling agent + user) · <span className="mono">resource</span> (target agent, skill) · <span className="mono">request</span> (method, token, obo chain)</p>
               </section>
             </div>
+            )}
 
+            {tab === 'obo' && (
             <section className="card" id="obo">
               <CardHead title="On-behalf-of Delegation Chain" sub={<>Task <span className="mono">{d.obo.task}</span> · context <span className="mono">{d.obo.context}</span> · each hop gets a new token whose scopes can only narrow</>} right={<Link className="lk" to="/telemetry">View trace →</Link>} />
               <div style={{ display: 'flex', alignItems: 'stretch', overflowX: 'auto', paddingBottom: 6 }}>
@@ -113,6 +121,7 @@ export default function Access() {
                 {d.obo.rules.map((r) => <div key={r} style={{ display: 'flex', gap: 10, alignItems: 'center' }}><Pill tone="ok">Rule</Pill>{r}</div>)}
               </div>
             </section>
+            )}
           </div>
         );
       }}</Loadable>

@@ -115,6 +115,7 @@ All endpoints are under `/api` and return JSON.
 | GET | `me` · `health` | Signed-in user · health check |
 | GET | `overview?range=24h\|7d\|30d` | Overview dashboard |
 | GET | `agents` · `agents/{id}` · `agents/{id}/card` | Registry · one agent · rewritten Agent Card |
+| POST | `agents` `{name, id, backendUrl, binding, auth, skills[], owner, trust, description}` | Register an agent (held for approval) |
 | POST | `agents/{id}/status` `{active}` · `agents/{id}/sync` | Activate/deactivate · re-sync card |
 | POST | `search` `{query}` | Capability search |
 | GET / POST | `approvals` · `approvals/{id}` `{decision}` | Pending approvals |

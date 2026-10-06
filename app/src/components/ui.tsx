@@ -1,4 +1,5 @@
 import { createContext, ReactNode, useCallback, useContext, useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 
 export const toneClass: Record<string, string> = { ok: 'pill p-ok', warn: 'pill p-warn', bad: 'pill p-bad', info: 'pill p-info', mute: 'pill p-mute', vio: 'pill p-vio' };
 export const Pill = ({ tone, children }: { tone: keyof typeof toneClass | string; children: ReactNode }) => <span className={toneClass[tone] ?? toneClass.mute}>{children}</span>;
@@ -12,15 +13,20 @@ export function PageHeader({ title, crumb, tools }: { title: string; crumb: Reac
   );
 }
 
-/** Tab strip. Items with `href` scroll to an anchor; items with `onSelect` switch views. */
-export function Tabs({ items }: { items: Array<{ label: ReactNode; active?: boolean; href?: string; onSelect?: () => void }> }) {
+/** Tab strip. Items with `to` navigate to another page; items with `onSelect` switch the view on this page. */
+export function Tabs({ items }: { items: Array<{ label: ReactNode; active?: boolean; to?: string; onSelect?: () => void }> }) {
   return (
     <nav className="tabs" aria-label="Sections">
-      {items.map((t, i) => t.href
-        ? <a key={i} className={`tab${t.active ? ' on' : ''}`} href={t.href} onClick={(e) => { e.preventDefault(); document.querySelector(t.href!)?.scrollIntoView({ behavior: 'smooth' }); }}>{t.label}</a>
+      {items.map((t, i) => t.to
+        ? <Link key={i} className={`tab${t.active ? ' on' : ''}`} to={t.to}>{t.label}</Link>
         : <button key={i} className={`tab${t.active ? ' on' : ''}`} aria-pressed={!!t.active} onClick={t.onSelect}>{t.label}</button>)}
     </nav>
   );
+}
+
+/** Builds tab items from [key, label] pairs bound to a piece of state. */
+export function tabItems<K extends string>(defs: Array<[K, ReactNode]>, value: K, set: (k: K) => void) {
+  return defs.map(([k, label]) => ({ label, active: value === k, onSelect: () => set(k) }));
 }
 
 export function Segmented<T extends string>({ value, options, onChange, label }: { value: T; options: Array<[T, string]>; onChange: (v: T) => void; label: string }) {
@@ -34,15 +40,16 @@ export function Segmented<T extends string>({ value, options, onChange, label }:
 export const Toggle = ({ on, label, onChange, disabled }: { on: boolean; label: string; onChange: (v: boolean) => void; disabled?: boolean }) =>
   <button className={`sw${on ? ' on' : ''}`} role="switch" aria-checked={on} aria-label={label} disabled={disabled} onClick={() => onChange(!on)} />;
 
-export function Kpis({ items, label }: { items: Array<{ label: string; value: ReactNode; delta?: ReactNode; deltaTone?: 'good' | 'bad'; style?: React.CSSProperties }>; label: string }) {
+export function Kpis({ items, label }: { items: Array<{ label: string; value: ReactNode; delta?: ReactNode; deltaTone?: 'good' | 'bad'; style?: React.CSSProperties; to?: string }>; label: string }) {
   return (
     <section className="kpis" aria-label={label}>
-      {items.map((k) => (
-        <div className="kpi" key={k.label}>
+      {items.map((k) => {
+        const inner = <>
           <div className="kl">{k.label}</div>
           <div className="kv" style={k.style}>{k.value}{k.delta && <span className={k.deltaTone === 'bad' ? 'delta-bad' : 'delta-good'}>{k.delta}</span>}</div>
-        </div>
-      ))}
+        </>;
+        return k.to ? <Link className="kpi" key={k.label} to={k.to}>{inner}</Link> : <div className="kpi" key={k.label}>{inner}</div>;
+      })}
     </section>
   );
 }

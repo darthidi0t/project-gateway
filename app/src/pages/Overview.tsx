@@ -26,6 +26,11 @@ function smoothPath(vals: number[], max: number) {
   return d;
 }
 const METHOD_COLORS = ['#5fd38d', '#4c7fe0', '#8fb3ff', '#b48ef0', '#f3b552', '#f07167'];
+const AGENT_IDS: Record<string, string> = {
+  'Concierge Orchestrator': 'agt-concierge', 'Billing Agent': 'agt-billing', 'Support Triage': 'agt-support-triage',
+  'Refund Agent': 'agt-refund', 'Procurement Agent': 'agt-procurement', 'Vendor Quote (ext.)': 'agt-vendor-quote'
+};
+const agentLink = (name: string) => (AGENT_IDS[name] ? `/registry?agent=${AGENT_IDS[name]}` : '/registry');
 const statusTone = (s: string) => (s === 'Healthy' ? 'ok' : s === 'Degraded' || s === 'Half-open' ? 'warn' : 'bad');
 
 export default function Overview() {
@@ -39,7 +44,7 @@ export default function Overview() {
         crumb="a2a.gateway.example.com · Production · A2A protocol v1.0"
         tools={<Segmented label="Time range" value={range} onChange={setRange} options={[['24h', '24 hours'], ['7d', '7 days'], ['30d', '30 days']]} />}
       />
-      <Tabs items={[{ label: 'Executive Dashboard', active: true, onSelect: () => {} }]} />
+      <Tabs items={[{ label: 'Executive Dashboard', active: true }, { label: 'Live Traffic', to: '/routing' }, { label: 'Security Incidents', to: '/guard' }, { label: 'Spend & Loops', to: '/spend' }]} />
       <Loadable state={state}>{(d) => {
         const line = smoothPath(d.trend.requests, d.trend.max);
         const maxPct = Math.max(...d.methods.map((m) => m.pct));
@@ -47,12 +52,12 @@ export default function Overview() {
         return (
           <div className="body">
             <Kpis label="Key metrics" items={[
-              { label: 'A2A Requests', value: d.kpis.req, delta: '↑ 18%', deltaTone: 'good' },
-              { label: 'Active Agents', value: d.kpis.activeAgents, delta: 'of 8 registered', deltaTone: 'good' },
-              { label: 'Task Success', value: d.kpis.succ, delta: '↓ 0.4%', deltaTone: 'bad' },
-              { label: 'Injections Blocked', value: d.kpis.inj, delta: '↑ 22%', deltaTone: 'bad' },
-              { label: 'Policy Denials', value: d.kpis.deny, delta: '↓ 9%', deltaTone: 'good' },
-              { label: 'Agent Spend', value: d.kpis.spend, delta: '↑ 12%', deltaTone: 'bad' }
+              { label: 'A2A Requests', value: d.kpis.req, delta: '↑ 18%', deltaTone: 'good', to: '/telemetry' },
+              { label: 'Active Agents', value: d.kpis.activeAgents, delta: 'of 8 registered', deltaTone: 'good', to: '/registry' },
+              { label: 'Task Success', value: d.kpis.succ, delta: '↓ 0.4%', deltaTone: 'bad', to: '/telemetry' },
+              { label: 'Injections Blocked', value: d.kpis.inj, delta: '↑ 22%', deltaTone: 'bad', to: '/guard' },
+              { label: 'Policy Denials', value: d.kpis.deny, delta: '↓ 9%', deltaTone: 'good', to: '/access' },
+              { label: 'Agent Spend', value: d.kpis.spend, delta: '↑ 12%', deltaTone: 'bad', to: '/spend' }
             ]} />
 
             <div className="grid2">
@@ -93,7 +98,7 @@ export default function Overview() {
                 <CardHead title="Top Agent Routes" sub="Busiest caller → callee pairs (east-west)" right={<Link className="lk" to="/registry">View registry →</Link>} />
                 <div className="tw"><table className="tbl">
                   <thead><tr><th>Caller</th><th>Callee</th><th>Calls</th><th>p95</th><th>Errors</th><th>Status</th></tr></thead>
-                  <tbody>{d.topRoutes.map((r) => <tr key={r.caller + r.callee}><td>{r.caller}</td><td>{r.callee}</td><td>{r.calls}</td><td className="nw">{r.p95}</td><td>{r.errors}</td><td><Pill tone={statusTone(r.status)}>{r.status}</Pill></td></tr>)}</tbody>
+                  <tbody>{d.topRoutes.map((r) => <tr key={r.caller + r.callee}><td><Link className="rowlink" to={agentLink(r.caller)}>{r.caller}</Link></td><td><Link className="rowlink" to={agentLink(r.callee)}>{r.callee}</Link></td><td>{r.calls}</td><td className="nw">{r.p95}</td><td>{r.errors}</td><td><Pill tone={statusTone(r.status)}>{r.status}</Pill></td></tr>)}</tbody>
                 </table></div>
               </section>
 
@@ -107,7 +112,7 @@ export default function Overview() {
                     <text x="21" y="27" textAnchor="middle" fill="#8d939c" fontSize="3">findings</text>
                   </svg>
                   <div style={{ flex: 1, minWidth: 220, display: 'flex', flexDirection: 'column', gap: 12, fontSize: 13 }}>
-                    {d.severity.map((sv) => <div key={sv.label} style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}><span><i className="dot" style={{ background: sv.color }} />{sv.label}</span><span>{sv.pct}%</span></div>)}
+                    {d.severity.map((sv) => <Link className="rowlink" to="/guard" key={sv.label} style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}><span><i className="dot" style={{ background: sv.color }} />{sv.label}</span><span>{sv.pct}%</span></Link>)}
                   </div>
                 </div>
               </section>
@@ -128,10 +133,10 @@ export default function Overview() {
                 <CardHead title="Spend vs. Budget by Principal" sub="Token + compute cost, month to date" right={<Link className="lk" to="/spend">View governance →</Link>} />
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
                   {d.spend.map((s) => (
-                    <div key={s.name}>
+                    <Link className="rowlink" to="/spend" key={s.name} style={{ display: 'block' }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, marginBottom: 6 }}><span>{s.name}</span><span style={{ color: 'var(--text-3)' }}>{money(s.used)} <span className="muted">/ {money(s.cap)}</span></span></div>
                       <div className="bar"><i style={{ width: `${(s.used / s.cap) * 100}%`, background: spendColor(s.used / s.cap) }} /></div>
-                    </div>
+                    </Link>
                   ))}
                 </div>
               </section>

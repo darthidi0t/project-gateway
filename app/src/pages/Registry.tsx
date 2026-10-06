@@ -1,4 +1,5 @@
-import { FormEvent, useState } from 'react';
+import { FormEvent, useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { api, useApi } from '../api';
 import { CardHead, Loadable, PageHeader, Pill, Tabs, useAction } from '../components/ui';
 
@@ -18,7 +19,10 @@ export default function Registry() {
   const [tab, setTab] = useState<'agents' | 'approvals'>('agents');
   const agents = useApi<Agent[]>('agents');
   const approvals = useApi<Approval[]>('approvals');
-  const [selId, setSelId] = useState('agt-billing');
+  const [params] = useSearchParams();
+  const [selId, setSelId] = useState(params.get('agent') ?? 'agt-billing');
+  const [registering, setRegistering] = useState(false);
+  useEffect(() => { const a = params.get('agent'); if (a) { setSelId(a); setTab('agents'); } }, [params]);
   const card = useApi<unknown>(`agents/${selId}/card`);
   const [query, setQuery] = useState('dispute a duplicate charge on a customer invoice');
   const [results, setResults] = useState<SearchResult[] | null>(null);
@@ -42,7 +46,7 @@ export default function Registry() {
       <PageHeader
         title="Agent Registry"
         crumb={<>Agent Cards are cached and rewritten so callers only ever see <span className="mono">a2a.gateway.example.com</span></>}
-        tools={<><button className="btn" onClick={() => setTab('approvals')}>Review approvals</button><button className="btn pri" onClick={() => setTab('approvals')}>+ Register agent</button></>}
+        tools={<><button className="btn" onClick={() => setTab('approvals')}>Review approvals{pending > 0 ? ` (${pending})` : ''}</button><button className="btn pri" onClick={() => setRegistering(true)}>+ Register agent</button></>}
       />
       <Tabs items={[
         { label: 'Agents & Discovery', active: tab === 'agents', onSelect: () => setTab('agents') },
@@ -86,7 +90,7 @@ export default function Registry() {
                   <div className="tw"><table className="tbl">
                     <thead><tr><th>Agent</th><th>Binding</th><th>Skills</th><th>Auth</th><th>Card sync</th><th>Status</th><th><span className="sr-only">Actions</span></th></tr></thead>
                     <tbody>{list.map((a) => (
-                      <tr key={a.id} className={a.id === sel.id ? 'sel' : ''}>
+                      <tr key={a.id} className={`click${a.id === sel.id ? ' sel' : ''}`} onClick={(e) => { if (!(e.target as HTMLElement).closest('button:not(.rb)')) setSelId(a.id); }}>
                         <td><button className="rb" onClick={() => setSelId(a.id)} aria-pressed={a.id === sel.id}><span className="rn">{a.name}</span><span className="mono muted">{a.id}</span></button></td>
                         <td><span className="chip">{a.binding}</span></td>
                         <td>{a.skills.length}</td>
@@ -160,6 +164,57 @@ export default function Registry() {
           </section>
         </div>
       )}
+
+      {registering && <RegisterDialog onClose={() => setRegistering(false)} onDone={(a) => {
+        setRegistering(false);
+        agents.setData((l) => (l ? [...l, a] : l));
+        void approvals.reload();
+        setSelId(a.id);
+        setTab('approvals');
+      }} />}
     </>
+  );
+}
+
+function RegisterDialog({ onClose, onDone }: { onClose: () => void; onDone: (a: Agent) => void }) {
+  const [f, setF] = useState({ name: '', id: 'agt-', description: '', backendUrl: 'https://', binding: 'JSON-RPC', auth: 'OAuth2 client credentials', owner: '', trust: 'internal', skills: '' });
+  const [err, setErr] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const set = (k: keyof typeof f) => (e: { target: { value: string } }) => setF((x) => ({ ...x, [k]: e.target.value }));
+  useEffect(() => { const h = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); }; window.addEventListener('keydown', h); return () => window.removeEventListener('keydown', h); }, [onClose]);
+
+  async function submit(e: FormEvent) {
+    e.preventDefault();
+    setBusy(true); setErr(null);
+    try {
+      const r = await api.post<{ agent: Agent }>('agents', { ...f, skills: f.skills.split(',').map((x) => x.trim()).filter(Boolean) });
+      onDone(r.agent);
+    } catch (x) { setErr(x instanceof Error ? x.message : String(x)); }
+    finally { setBusy(false); }
+  }
+
+  return (
+    <div className="modal-back" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+      <div className="modal" role="dialog" aria-modal="true" aria-labelledby="reg-title">
+        <h2 id="reg-title" className="ct" style={{ fontSize: 18 }}>Register an agent</h2>
+        <p className="cs" style={{ margin: '4px 0 18px' }}>The agent is added as Pending and held for approval before the gateway routes any traffic to it.</p>
+        <form className="form" onSubmit={submit}>
+          <label>Display name<input required value={f.name} onChange={set('name')} placeholder="Invoice Matching Agent" autoFocus /></label>
+          <label>Agent ID<input required value={f.id} onChange={set('id')} placeholder="agt-invoice-matching" pattern="agt-[a-z0-9-]{2,40}" title="agt- followed by lower-case letters, digits and dashes" /></label>
+          <label className="full">Backend URL (never shown to callers)<input required value={f.backendUrl} onChange={set('backendUrl')} placeholder="https://invoice-match.internal/a2a" /></label>
+          <label>Protocol binding<select value={f.binding} onChange={set('binding')}><option>JSON-RPC</option><option>HTTP+JSON</option><option>gRPC</option></select></label>
+          <label>Backend authentication<select value={f.auth} onChange={set('auth')}><option>OAuth2 client credentials</option><option>mTLS (SPIFFE)</option><option>mTLS + OAuth2 token exchange</option><option>API key</option></select></label>
+          <label>Owner team<input value={f.owner} onChange={set('owner')} placeholder="Finance Engineering" /></label>
+          <label>Trust tier<select value={f.trust} onChange={set('trust')}><option value="internal">Internal</option><option value="external">External partner</option></select></label>
+          <label className="full">Skills (comma-separated)<input value={f.skills} onChange={set('skills')} placeholder="invoice.match, invoice.explain" /></label>
+          <label className="full">Description<textarea value={f.description} onChange={set('description')} placeholder="What this agent does, in one or two sentences." /></label>
+          {err && <div className="full" role="alert" style={{ color: '#ff8a80', fontSize: 13 }}>{err}</div>}
+          <div className="full" style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+            <button type="button" className="btn" onClick={onClose}>Cancel</button>
+            <button type="submit" className="btn pri" disabled={busy}>{busy ? 'Registering…' : 'Register agent'}</button>
+          </div>
+        </form>
+      </div>
+    </div>
   );
 }

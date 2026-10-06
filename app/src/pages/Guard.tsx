@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api, useApi } from '../api';
-import { CardHead, Kpis, Loadable, PageHeader, Pill, Segmented, Tabs, Toggle, useAction } from '../components/ui';
+import { CardHead, Kpis, Loadable, PageHeader, Pill, Segmented, Tabs, Toggle, tabItems, useAction } from '../components/ui';
 
 interface GuardEvent { id: string; t: string; type: string; from: string; to: string; score: string; act: string; task: string; part: string; clf: string; segs: Array<[string, number]>; steps: string[] }
 interface Plugin { key: string; name: string; desc: string; enabled: boolean }
@@ -17,6 +17,7 @@ const TYPE_COLORS = ['#f07167', '#f3a23b', '#f3b552', '#c4a5ff', '#8fb3ff', '#4c
 
 export default function Guard() {
   const state = useApi<GuardData>('guard');
+  const [tab, setTab] = useState<'events' | 'plugins'>('events');
   const [sel, setSel] = useState(0);
   const act = useAction();
 
@@ -33,7 +34,7 @@ export default function Guard() {
           }} />
         </>}
       />
-      <Tabs items={[{ label: 'Detections', href: '#events', active: true }, { label: 'Guard Plugins', href: '#plugins' }]} />
+      <Tabs items={tabItems([['events', 'Detections'], ['plugins', 'Guard Plugins']], tab, setTab)} />
       <Loadable state={state}>{(d) => {
         const ev = d.events[Math.min(sel, d.events.length - 1)]!;
         const maxN = Math.max(...d.types.map((t) => t.n));
@@ -47,13 +48,14 @@ export default function Guard() {
               { label: 'Added latency p95', value: d.kpis.latencyP95 }
             ]} />
 
+            {tab === 'events' && (
             <div className="split" id="events">
               <section className="card" style={{ flex: '999 1 600px' }}>
                 <CardHead title="Detections" sub="Last 24 hours · select one to see the intercepted payload" />
                 <div className="tw"><table className="tbl nw">
                   <thead><tr><th>Time</th><th>Detection</th><th>Handoff</th><th>Score</th><th>Action</th></tr></thead>
                   <tbody>{d.events.map((e, i) => (
-                    <tr key={e.id} className={e.id === ev.id ? 'sel' : ''}>
+                    <tr key={e.id} className={`click${e.id === ev.id ? ' sel' : ''}`} onClick={() => setSel(i)}>
                       <td className="mono" style={{ color: 'var(--text-3)' }}>{e.t}</td>
                       <td><button className="rb" onClick={() => setSel(i)} aria-pressed={e.id === ev.id}>{e.type}</button></td>
                       <td>{e.from} <span className="muted">→</span> {e.to}</td>
@@ -88,7 +90,9 @@ export default function Guard() {
                 </div>
               </section>
             </div>
+            )}
 
+            {tab === 'plugins' && (
             <div className="grid2" id="plugins">
               <section className="card">
                 <CardHead title="Detections by Type" sub="Blocked + sanitized, last 7 days" />
@@ -113,6 +117,7 @@ export default function Guard() {
                 ))}
               </section>
             </div>
+            )}
           </div>
         );
       }}</Loadable>

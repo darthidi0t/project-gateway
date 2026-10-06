@@ -1,6 +1,6 @@
-import { Fragment } from 'react';
+import { Fragment, useState } from 'react';
 import { api, useApi } from '../api';
-import { Arrow, CardHead, Kpis, Loadable, PageHeader, Pill, Tabs, Toggle, money, spendColor, useAction } from '../components/ui';
+import { Arrow, CardHead, Kpis, Loadable, PageHeader, Pill, Tabs, Toggle, money, spendColor, tabItems, useAction } from '../components/ui';
 
 type Circuit = 'open' | 'half-open' | 'closed';
 interface Gov {
@@ -14,13 +14,14 @@ const CIRCUIT: Record<Circuit, [string, string]> = { open: ['Circuit open', 'bad
 const NEXT: Record<Circuit, [Circuit, string]> = { open: ['half-open', 'Move to half-open'], 'half-open': ['closed', 'Close circuit'], closed: ['open', 'Re-open circuit'] };
 
 export default function Spend() {
+  const [tab, setTab] = useState<'loops' | 'caps' | 'throttle'>('loops');
   const state = useApi<Gov>('governance');
   const act = useAction();
 
   return (
     <>
       <PageHeader title="Spend, Rate Limits & Loop Breakers" crumb="Token, request and dollar caps per agent principal · automatic circuit breaking for runaway agent-to-agent loops" />
-      <Tabs items={[{ label: 'Loop Breakers', href: '#loops', active: true }, { label: 'Caps by Principal', href: '#caps' }, { label: 'Throttling Log', href: '#throttle' }]} />
+      <Tabs items={tabItems([['loops', 'Loop Breakers'], ['caps', 'Caps by Principal'], ['throttle', 'Throttling Log']], tab, setTab)} />
       <Loadable state={state}>{(d) => {
         const inc = d.incident;
         const [cLabel, cTone] = CIRCUIT[inc.circuit];
@@ -35,6 +36,7 @@ export default function Spend() {
               { label: 'Loops stopped (30 d)', value: d.kpis.loopsStopped30d, delta: `≈ ${d.kpis.saved} saved`, deltaTone: 'good' }
             ]} />
 
+            {tab === 'loops' && (
             <section id="loops" style={{ background: '#1a1312', border: '1px solid #5c2a24', borderRadius: 10, padding: 20 }}>
               <CardHead
                 title={<span style={{ display: 'inline-flex', gap: 10, alignItems: 'center', flexWrap: 'wrap', fontSize: 16 }}><Pill tone={cTone}>{cLabel}</Pill>Runaway loop stopped · context <span className="mono" style={{ fontSize: 13 }}>{inc.context}</span></span>}
@@ -61,7 +63,9 @@ export default function Spend() {
                 </div>
               </div>
             </section>
+            )}
 
+            {tab === 'loops' && (
             <div className="grid2">
               <section className="card">
                 <CardHead title="Loop Detection Rules" sub="Any rule tripping opens the circuit for that caller → callee route" />
@@ -85,7 +89,9 @@ export default function Spend() {
                 ))}
               </section>
             </div>
+            )}
 
+            {tab === 'caps' && (
             <section className="card" id="caps">
               <CardHead title="Caps by Agent Principal" sub="Request, token and dollar limits enforced at the gateway · counters reset per window" />
               <div className="tw"><table className="tbl nw">
@@ -104,7 +110,9 @@ export default function Spend() {
                 })}</tbody>
               </table></div>
             </section>
+            )}
 
+            {tab === 'throttle' && (
             <section className="card" id="throttle">
               <CardHead title="Throttling Log" sub="Most recent limit hits" />
               <div className="tw"><table className="tbl nw">
@@ -112,6 +120,7 @@ export default function Spend() {
                 <tbody>{d.throttleLog.map((t) => <tr key={t.t}><td className="mono" style={{ color: 'var(--text-3)' }}>{t.t}</td><td>{t.route}</td><td>{t.limit}</td><td>{t.observed}</td><td><Pill tone={t.tone}>{t.response}</Pill></td></tr>)}</tbody>
               </table></div>
             </section>
+            )}
           </div>
         );
       }}</Loadable>

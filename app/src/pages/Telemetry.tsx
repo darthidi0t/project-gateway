@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useApi } from '../api';
-import { CardHead, Kpis, Loadable, PageHeader, Pill, Segmented, Tabs, fmtMs } from '../components/ui';
+import { CardHead, Kpis, Loadable, PageHeader, Pill, Segmented, Tabs, fmtMs, tabItems } from '../components/ui';
 
 interface TelemetryData {
   group: string;
@@ -19,6 +19,7 @@ const W = (v: number) => `${Math.min(100, (v / 5000) * 100).toFixed(1)}%`;
 const COLS = 'minmax(240px,340px) minmax(300px,1fr) 70px';
 
 export default function Telemetry() {
+  const [tab, setTab] = useState<'metrics' | 'trace' | 'codes'>('metrics');
   const [group, setGroup] = useState<'method' | 'agent' | 'status'>('method');
   const tel = useApi<TelemetryData>(`telemetry?group=${group}`);
   const trace = useApi<TraceData>('traces/4bf92f3577b34da6a3ce929d0e0e4736');
@@ -30,7 +31,7 @@ export default function Telemetry() {
         title="Telemetry & Tracing"
         crumb="Real-time A2A metrics by method, task, agent and status code · OpenTelemetry traces across every agent handoff"
       />
-      <Tabs items={[{ label: 'Metrics', href: '#metrics', active: true }, { label: 'Distributed Trace', href: '#trace' }, { label: 'Status Codes', href: '#codes' }]} />
+      <Tabs items={tabItems([['metrics', 'Metrics'], ['trace', 'Distributed Trace'], ['codes', 'Status Codes']], tab, setTab)} />
       <div className="body">
         <Loadable state={tel}>{(d) => (
           <>
@@ -38,6 +39,7 @@ export default function Telemetry() {
               { label: 'Requests', value: d.kpis.requests }, { label: 'Error rate', value: d.kpis.errorRate, style: { color: '#f3b552' } },
               { label: 'p50', value: d.kpis.p50 }, { label: 'p95', value: d.kpis.p95 }, { label: 'p99', value: d.kpis.p99 }, { label: 'Open tasks', value: d.kpis.openTasks }
             ]} />
+            {tab === 'metrics' && (
             <section className="card" id="metrics">
               <CardHead title="Latency & Errors" sub={`Grouped by ${GROUP_NAME[group]} · bar shows p50 / p95 / p99 on a 5 s scale`}
                 right={<Segmented label="Group by" value={group} onChange={setGroup} options={[['method', 'A2A method'], ['agent', 'Agent ID'], ['status', 'Status code']]} />} />
@@ -57,9 +59,11 @@ export default function Telemetry() {
               </table></div>
               <div className="legend" style={{ marginTop: 14 }}><span><i className="dot" style={{ background: '#5fd38d' }} />p50</span><span><i className="dot" style={{ background: '#3a7d55' }} />p95</span><span><i className="dot" style={{ background: '#2a4636' }} />p99</span></div>
             </section>
+            )}
           </>
         )}</Loadable>
 
+        {tab === 'trace' && (
         <section className="card" id="trace">
           <Loadable state={trace}>{(t) => {
             const span = t.spans[Math.min(sel, t.spans.length - 1)]!;
@@ -100,8 +104,9 @@ export default function Telemetry() {
             );
           }}</Loadable>
         </section>
+        )}
 
-        {tel.data && (
+        {tab === 'codes' && tel.data && (
           <section className="card" id="codes">
             <CardHead title="Status Codes" sub="HTTP status and A2A / JSON-RPC error codes returned through the gateway, last 24 hours" />
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>

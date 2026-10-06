@@ -50,6 +50,18 @@ export const routes: RouteDef[] = [
   { name: 'overview', methods: ['GET'], route: 'overview', handler: (r) => ok(store.overview(r.query.get('range') ?? '7d')) },
 
   { name: 'agentsList', methods: ['GET'], route: 'agents', handler: () => ok(store.listAgents()) },
+  { name: 'agentRegister', methods: ['POST'], route: 'agents', handler: (r) => {
+    const b = obj(r.body);
+    const binding = String(b.binding ?? 'JSON-RPC');
+    if (!['JSON-RPC', 'HTTP+JSON', 'gRPC'].includes(binding)) throw new HttpError(400, 'binding must be JSON-RPC, HTTP+JSON or gRPC');
+    const skills = Array.isArray(b.skills) ? b.skills.map(String).map((x) => x.trim()).filter(Boolean).slice(0, 20) : [];
+    const trust = b.trust === 'external' ? 'external' : 'internal';
+    return { status: 201, body: store.registerAgent({
+      name: str(b, 'name'), id: str(b, 'id').toLowerCase(), backendUrl: str(b, 'backendUrl'), auth: str(b, 'auth'),
+      description: typeof b.description === 'string' ? b.description.slice(0, 500) : '', owner: typeof b.owner === 'string' ? b.owner.slice(0, 100) : '',
+      binding: binding as 'JSON-RPC', skills, trust
+    }) };
+  } },
   { name: 'agentGet', methods: ['GET'], route: 'agents/{id}', handler: (r) => ok(store.getAgent(r.params.id!)) },
   { name: 'agentCard', methods: ['GET'], route: 'agents/{id}/card', handler: (r) => ok(store.agentCard(r.params.id!)) },
   { name: 'agentStatus', methods: ['POST'], route: 'agents/{id}/status', handler: (r) => ok(store.setAgentActive(r.params.id!, bool(r.body, 'active'))) },
