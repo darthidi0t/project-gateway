@@ -1,0 +1,21 @@
+{
+  "name": "a2a-gateway-console-api",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Azure Functions API for the A2A Gateway Console",
+  "main": "dist/functions/*.js",
+  "scripts": {
+    "build": "tsc",
+    "watch": "tsc -w",
+    "dev": "tsc && node dist/dev-server.js",
+    "start": "func start",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@azure/functions": "^4.6.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.0",
+    "typescript": "^5.6.0"
+  }
+}

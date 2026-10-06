@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json.schemastore.org/staticwebapp.config.json",
+  "platform": {
+    "apiRuntime": "node:20"
+  },
+  "navigationFallback": {
+    "rewrite": "/index.html",
+    "exclude": ["/assets/*", "/favicon.svg", "/api/*", "/.auth/*"]
+  },
+  "routes": [
+    { "route": "/.auth/login/github", "statusCode": 404 },
+    { "route": "/.auth/login/twitter", "statusCode": 404 },
+    { "route": "/forbidden.html", "allowedRoles": ["authenticated"] },
+    { "route": "/assets/*", "headers": { "Cache-Control": "public, max-age=31536000, immutable" } },
+    { "route": "/api/*", "allowedRoles": ["console-admin"], "headers": { "Cache-Control": "no-store" } },
+    { "route": "/*", "allowedRoles": ["console-admin"] }
+  ],
+  "globalHeaders": {
+    "Content-Security-Policy": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'",
+    "X-Content-Type-Options": "nosniff",
+    "Referrer-Policy": "strict-origin-when-cross-origin",
+    "Permissions-Policy": "camera=(), microphone=(), geolocation=()"
+  },
+  "responseOverrides": {
+    "401": { "redirect": "/.auth/login/aad?post_login_redirect_uri=/", "statusCode": 302 },
+    "403": { "rewrite": "/forbidden.html", "statusCode": 403 },
+    "404": { "rewrite": "/index.html", "statusCode": 200 }
+  }
+}

@@ -1,0 +1,8 @@
+node_modules/
+dist/
+api/local.settings.json
+.swa/
+*.log
+.DS_Store
+.env
+*.tsbuildinfo

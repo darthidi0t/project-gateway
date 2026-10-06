@@ -1,0 +1,16 @@
+{
+  "$schema": "https://aka.ms/azure/static-web-apps-cli/schema",
+  "configurations": {
+    "a2a-gateway-console": {
+      "appLocation": "app",
+      "apiLocation": "api",
+      "outputLocation": "dist",
+      "apiLanguage": "node",
+      "apiVersion": "20",
+      "appBuildCommand": "npm run build",
+      "apiBuildCommand": "npm run build",
+      "run": "npm run dev",
+      "appDevserverUrl": "http://localhost:5173"
+    }
+  }
+}

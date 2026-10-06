@@ -1,0 +1,13 @@
+{
+  "name": "a2a-gateway-console",
+  "version": "1.0.0",
+  "private": true,
+  "description": "A2A Gateway Console — React front end + Azure Functions API, deployable to Azure Static Web Apps",
+  "scripts": {
+    "install:all": "npm install --prefix api && npm install --prefix app",
+    "dev:api": "npm run dev --prefix api",
+    "dev:app": "npm run dev --prefix app",
+    "build": "npm run build --prefix api && npm run build --prefix app",
+    "typecheck": "npm run typecheck --prefix api && npm run typecheck --prefix app"
+  }
+}
