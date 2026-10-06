@@ -67,7 +67,7 @@ You need an Azure subscription and the [Azure CLI](https://learn.microsoft.com/c
    az group create -n rg-a2a-console -l eastasia
    az deployment group create -g rg-a2a-console -f infra/main.bicep -p name=a2a-gateway-console
    ```
-3. Get the deployment token and save it as a repository secret named `AZURE_STATIC_WEB_APPS_API_TOKEN` (GitHub → Settings → Secrets and variables → Actions):
+3. Get the deployment token and save it as a repository secret named `AZURE_STATIC_WEB_APPS_API_TOKEN_YELLOW_DESERT_0AD732700` (the name `.github/workflows/azure-static-web-apps.yml` expects; change both together if you rename it) (GitHub → Settings → Secrets and variables → Actions):
    ```bash
    az staticwebapp secrets list -n a2a-gateway-console -g rg-a2a-console --query "properties.apiKey" -o tsv
    ```
@@ -92,7 +92,7 @@ npx @azure/static-web-apps-cli deploy ./app/dist \
 
 ### Option C — Azure portal
 
-Create a **Static Web App**, choose **GitHub** as the source, and set *App location* `app`, *Api location* `api`, *Output location* `dist`. Azure commits a workflow for you; delete the one in `.github/workflows` if you use this route so only one deploys.
+Create a **Static Web App**, choose **GitHub** as the source, and set *App location* `app`, *Api location* `api`, *Output location* `dist`. Azure commits its own workflow (with `output_location: build` and no API), which fails for this project. Delete it and point `.github/workflows/azure-static-web-apps.yml` at the secret name Azure created.
 
 ## Restricting access
 
